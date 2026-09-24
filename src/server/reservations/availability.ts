@@ -12,9 +12,53 @@ interface AvailabilityCheckInput extends AvailabilityInput {
   requestedQuantity: number;
 }
 
-export async function getAvailableQuantity(input: AvailabilityInput): Promise<number> {
+interface Booking {
+  startAt: Date;
+  endAt: Date;
+  quantity: number;
+}
+
+type Event = {
+  timestamp: number;
+  quantityChange: number;
+};
+
+function peakConcurrentQuantity(bookings: Booking[]): number {
+  const events: Event[] = bookings.flatMap((booking) => [
+    {
+      timestamp: booking.startAt.getTime(),
+      quantityChange: booking.quantity,
+    },
+    {
+      timestamp: booking.endAt.getTime(),
+      quantityChange: -booking.quantity,
+    },
+  ]);
+
+  events.sort(
+    (a, b) => a.timestamp - b.timestamp || a.quantityChange - b.quantityChange,
+  );
+
+  let currentQuantity = 0;
+  let peakQuantity = 0;
+
+  for (const event of events) {
+    currentQuantity += event.quantityChange;
+    peakQuantity = Math.max(peakQuantity, currentQuantity);
+  }
+
+  return peakQuantity;
+}
+
+export async function getAvailableQuantity(
+  input: AvailabilityInput,
+): Promise<number> {
   if (input.endAt <= input.startAt) {
-    throw new DomainError("End time must be after start time.", 400, "INVALID_INTERVAL");
+    throw new DomainError(
+      "End time must be after start time.",
+      400,
+      "INVALID_INTERVAL",
+    );
   }
 
   const equipment = await prisma.equipment.findFirst({
@@ -30,16 +74,17 @@ export async function getAvailableQuantity(input: AvailabilityInput): Promise<nu
     );
   }
 
-  // Availability behavior is part of the candidate challenge.
   const reservations = await prisma.reservation.findMany({
     where: {
       locationId: input.locationId,
       status: "CONFIRMED",
-      startAt: { lte: input.endAt },
-      endAt: { gte: input.startAt },
+      startAt: { lt: input.endAt },
+      endAt: { gt: input.startAt },
       items: { some: { equipmentId: input.equipmentId } },
     },
     select: {
+      startAt: true,
+      endAt: true,
       items: {
         where: { equipmentId: input.equipmentId },
         select: { quantity: true },
@@ -47,19 +92,35 @@ export async function getAvailableQuantity(input: AvailabilityInput): Promise<nu
     },
   });
 
-  const reservedQuantity = reservations.reduce(
-    (sum, reservation) => sum + reservation.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
-    0,
+  const bookings = reservations.flatMap((reservation) =>
+    reservation.items.map((item) => ({
+      startAt:
+        reservation.startAt > input.startAt
+          ? reservation.startAt
+          : input.startAt,
+      endAt: reservation.endAt < input.endAt ? reservation.endAt : input.endAt,
+      quantity: item.quantity,
+    })),
   );
 
-  return Math.max(0, equipment.totalQuantity - reservedQuantity);
+  return Math.max(
+    0,
+    equipment.totalQuantity - peakConcurrentQuantity(bookings),
+  );
 }
 
 export async function checkAvailability(
   input: AvailabilityCheckInput,
 ): Promise<{ available: boolean; availableQuantity: number }> {
-  if (!Number.isInteger(input.requestedQuantity) || input.requestedQuantity <= 0) {
-    throw new DomainError("Quantity must be a positive whole number.", 400, "INVALID_QUANTITY");
+  if (
+    !Number.isInteger(input.requestedQuantity) ||
+    input.requestedQuantity <= 0
+  ) {
+    throw new DomainError(
+      "Quantity must be a positive whole number.",
+      400,
+      "INVALID_QUANTITY",
+    );
   }
 
   const availableQuantity = await getAvailableQuantity(input);
