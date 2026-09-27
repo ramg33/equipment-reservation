@@ -3,6 +3,7 @@
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import type { ReactNode } from "react";
+import { NotificationProvider } from "@/features/notifications/notification-provider";
 
 const theme = createTheme({
   palette: {
@@ -29,7 +30,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
     <AppRouterCacheProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {children}
+        <NotificationProvider>{children}</NotificationProvider>
       </ThemeProvider>
     </AppRouterCacheProvider>
   );

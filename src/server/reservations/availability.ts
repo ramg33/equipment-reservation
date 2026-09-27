@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { DomainError } from "@/lib/domain-error";
 import { prisma } from "@/lib/prisma";
 
@@ -52,6 +53,7 @@ function peakConcurrentQuantity(bookings: Booking[]): number {
 
 export async function getAvailableQuantity(
   input: AvailabilityInput,
+  db: Prisma.TransactionClient = prisma,
 ): Promise<number> {
   if (input.endAt <= input.startAt) {
     throw new DomainError(
@@ -61,7 +63,7 @@ export async function getAvailableQuantity(
     );
   }
 
-  const equipment = await prisma.equipment.findFirst({
+  const equipment = await db.equipment.findFirst({
     where: { id: input.equipmentId, locationId: input.locationId },
     select: { totalQuantity: true },
   });
@@ -74,7 +76,7 @@ export async function getAvailableQuantity(
     );
   }
 
-  const reservations = await prisma.reservation.findMany({
+  const reservations = await db.reservation.findMany({
     where: {
       locationId: input.locationId,
       status: "CONFIRMED",
@@ -111,6 +113,7 @@ export async function getAvailableQuantity(
 
 export async function checkAvailability(
   input: AvailabilityCheckInput,
+  db: Prisma.TransactionClient = prisma,
 ): Promise<{ available: boolean; availableQuantity: number }> {
   if (
     !Number.isInteger(input.requestedQuantity) ||
@@ -123,7 +126,7 @@ export async function checkAvailability(
     );
   }
 
-  const availableQuantity = await getAvailableQuantity(input);
+  const availableQuantity = await getAvailableQuantity(input, db);
   return {
     available: input.requestedQuantity <= availableQuantity,
     availableQuantity,
