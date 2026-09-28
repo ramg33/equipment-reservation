@@ -35,14 +35,28 @@ interface ApiErrorBody {
 
 const emptyItem = { equipmentId: "", quantity: 1 };
 
-export function CreateReservationForm({
+const emptyValues: CreateReservationInput = {
+  locationId: "",
+  startAt: "",
+  endAt: "",
+  status: "CONFIRMED",
+  items: [emptyItem],
+};
+
+/** Creates a reservation, or edits one when `reservationId` is given. */
+export function ReservationForm({
   locations,
+  reservationId,
+  defaultValues = emptyValues,
 }: {
   locations: LocationOption[];
+  reservationId?: string;
+  defaultValues?: CreateReservationInput;
 }) {
   const router = useRouter();
   const notify = useNotify();
   const [serverError, setServerError] = useState<string | null>(null);
+  const isEdit = reservationId !== undefined;
   const {
     control,
     register,
@@ -50,13 +64,7 @@ export function CreateReservationForm({
     formState: { errors, isSubmitting },
   } = useForm<CreateReservationInput>({
     resolver: zodResolver(createReservationSchema),
-    defaultValues: {
-      locationId: "",
-      startAt: "",
-      endAt: "",
-      status: "CONFIRMED",
-      items: [emptyItem],
-    },
+    defaultValues,
   });
   const { fields, append, remove, replace } = useFieldArray({
     control,
@@ -73,19 +81,27 @@ export function CreateReservationForm({
     setServerError(null);
 
     try {
-      const response = await fetch("/api/reservations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      const body = (await response.json()) as ApiErrorBody;
-
+      const response = await fetch(
+        isEdit ? `/api/reservations/${reservationId}` : "/api/reservations",
+        {
+          method: isEdit ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        },
+      );
       if (!response.ok) {
-        setServerError(body.error ?? "The reservation could not be created.");
+        // A non-JSON error body (e.g. a proxy 502) falls back to the generic message.
+        const body = (await response.json().catch(() => ({}))) as ApiErrorBody;
+        setServerError(
+          body.error ??
+            (isEdit
+              ? "The reservation could not be updated."
+              : "The reservation could not be created."),
+        );
         return;
       }
 
-      notify("Reservation created.");
+      notify(isEdit ? "Reservation updated." : "Reservation created.");
       router.push("/");
       router.refresh();
     } catch {
@@ -302,7 +318,13 @@ export function CreateReservationForm({
             Cancel
           </Button>
           <Button type="submit" variant="contained" disabled={isSubmitting}>
-            {isSubmitting ? "Creating…" : "Create reservation"}
+            {isEdit
+              ? isSubmitting
+                ? "Saving…"
+                : "Save changes"
+              : isSubmitting
+                ? "Creating…"
+                : "Create reservation"}
           </Button>
         </Box>
       </Stack>
