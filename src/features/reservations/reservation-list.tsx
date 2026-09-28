@@ -1,5 +1,6 @@
 "use client";
 
+import EditIcon from "@mui/icons-material/Edit";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import {
   Box,
@@ -82,7 +83,15 @@ export function ReservationList({ reservations }: { reservations: ReservationLis
                     {reservation.note ?? "—"}
                   </Typography>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                  <Tooltip title="Edit reservation">
+                    <IconButton
+                      href={`/reservations/${reservation.id}/edit`}
+                      aria-label={`Edit ${reservation.locationName} reservation starting ${formatDate(reservation.startAt)}`}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                  </Tooltip>
                   <Tooltip title="Edit internal note">
                     <IconButton
                       aria-label={`Edit note for ${reservation.locationName} reservation starting ${formatDate(reservation.startAt)}`}
@@ -120,14 +129,22 @@ export function ReservationList({ reservations }: { reservations: ReservationLis
                   <Typography variant="caption" color="text.secondary">Internal note</Typography>
                   <Typography>{reservation.note ?? "No note"}</Typography>
                 </Box>
-                <Button
-                  variant="outlined"
-                  startIcon={<EditNoteIcon />}
-                  onClick={() => setEditing(reservation)}
-                  sx={{ alignSelf: "flex-start" }}
-                >
-                  Edit note
-                </Button>
+                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<EditIcon />}
+                    href={`/reservations/${reservation.id}/edit`}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<EditNoteIcon />}
+                    onClick={() => setEditing(reservation)}
+                  >
+                    Edit note
+                  </Button>
+                </Stack>
               </Stack>
             </CardContent>
           </Card>

@@ -1,6 +1,6 @@
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Alert, Box, Button, Card, CardContent, Stack, Typography } from "@mui/material";
-import { CreateReservationForm } from "@/features/reservations/create-reservation-form";
+import { ReservationForm } from "@/features/reservations/reservation-form";
 import { listLocations } from "@/server/locations/list-locations";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export default async function NewReservationPage() {
           {locations.length === 0 ? (
             <Alert severity="info">No locations are set up yet, so reservations can&apos;t be created.</Alert>
           ) : (
-            <CreateReservationForm locations={locations} />
+            <ReservationForm locations={locations} />
           )}
         </CardContent>
       </Card>
